@@ -1,0 +1,73 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:jms="http://www.springframework.org/schema/jms"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="
+        http://www.springframework.org/schema/beans     
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/mvc 
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd
+        http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context.xsd 
+        http://www.springframework.org/schema/jms 
+        http://www.springframework.org/schema/jms/spring-jms-3.0.xsd">
+ 
+	<context:component-scan base-package="interview.test.currency.fair.markettrade" />
+ 
+	<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+		<property name="prefix" value="/WEB-INF/pages/" />
+		<property name="suffix" value=".jsp" />
+	</bean>
+ 
+	<bean id="jacksonMessageConverter" class="org.springframework.http.converter.json.MappingJacksonHttpMessageConverter"></bean>
+ 	<bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">
+		<property name="messageConverters">
+  			<list>
+    			<ref bean="jacksonMessageConverter"/>
+  			</list>
+		</property>
+	</bean>
+	
+	<mvc:resources mapping="/resources/**" location="/resources/" />
+ 
+	<mvc:annotation-driven />
+ 
+ 	<bean id="marketTradeProducer" class="interview.test.currency.fair.markettrade.producer.MarketTradeProducer">
+ 		<constructor-arg ref="producerTemplate" />
+ 	</bean>
+ 	
+ 	<bean id="amqConnectionFactory" 
+ 		class="org.apache.activemq.ActiveMQConnectionFactory"
+    	p:brokerURL="tcp://localhost:61616" />
+ 
+ 	<bean id="cachedConnectionFactory"
+    	class="org.springframework.jms.connection.CachingConnectionFactory"
+    	p:targetConnectionFactory-ref="amqConnectionFactory"
+    	p:sessionCacheSize="10" />
+ 
+	<bean id="destination"
+		class="org.apache.activemq.command.ActiveMQQueue">
+		<constructor-arg value="curency.fair.trade" />
+	</bean>
+ 
+ 	<bean id="producerTemplate"
+    	class="org.springframework.jms.core.JmsTemplate"
+    	p:connectionFactory-ref="cachedConnectionFactory"
+    	p:defaultDestination-ref="destination" />
+ 
+  	<bean id="marketTradeConsumer" class="interview.test.currency.fair.markettrade.consumer.MarketTradeConsumer"/>
+  
+  	<jms:listener-container
+      container-type="default"
+      connection-factory="cachedConnectionFactory"
+      acknowledge="auto"
+      concurrency="5-10">
+      <jms:listener destination="curency.fair.trade" ref="marketTradeConsumer" method="onMessage" />
+  	</jms:listener-container>
+  	
+  	<bean id="redisMetricsService" class="interview.test.currency.fair.markettrade.metrics.RedisMetricsService" />
+    	
+</beans>
